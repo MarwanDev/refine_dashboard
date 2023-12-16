@@ -1,236 +1,175 @@
+import { Refine, AuthProvider } from '@pankod/refine-core';
 import {
-  AuthBindings,
-  Authenticated,
-  GitHubBanner,
-  Refine,
-} from "@refinedev/core";
-import { DevtoolsPanel, DevtoolsProvider } from "@refinedev/devtools";
-import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
-
-import {
-  ErrorComponent,
   notificationProvider,
   RefineSnackbarProvider,
-  ThemedLayoutV2,
-} from "@refinedev/mui";
+  CssBaseline,
+  GlobalStyles,
+  ReadyPage,
+  ErrorComponent,
+} from '@pankod/refine-mui';
+import {
+  AccountCircleOutlined,
+  ChatBubbleOutline,
+  PeopleAltOutlined,
+  StarOutlineRounded,
+  VillaOutlined,
+} from '@mui/icons-material';
+import dataProvider from '@pankod/refine-simple-rest';
+import routerProvider from '@pankod/refine-react-router-v6';
+import axios, { AxiosRequestConfig } from 'axios';
 
-import CssBaseline from "@mui/material/CssBaseline";
-import GlobalStyles from "@mui/material/GlobalStyles";
-import routerBindings, {
-  CatchAllNavigate,
-  DocumentTitleHandler,
-  NavigateToResource,
-  UnsavedChangesNotifier,
-} from "@refinedev/react-router-v6";
-import dataProvider from "@refinedev/simple-rest";
-import axios from "axios";
-import { CredentialResponse } from "interfaces/google";
+import { Title, Sider, Layout, Header } from 'components/layout';
+import { ColorModeContextProvider } from 'contexts';
+import { CredentialResponse } from 'interfaces/google';
+import { parseJwt } from 'utils/parse-jwt';
+
 import {
-  BlogPostCreate,
-  BlogPostEdit,
-  BlogPostList,
-  BlogPostShow,
-} from "pages/blog-posts";
-import {
-  CategoryCreate,
-  CategoryEdit,
-  CategoryList,
-  CategoryShow,
-} from "pages/categories";
-import { Login } from "pages/login";
-import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
-import { parseJwt } from "utils/parse-jwt";
-import { Header } from "./components/header";
-import { ColorModeContextProvider } from "./contexts/color-mode";
+  Home,
+  Agents,
+  Login,
+  MyProfile,
+  PropertyDetails,
+  AllProperties,
+  CreateProperty,
+  AgentProfile,
+  EditProperty,
+} from 'pages';
 
 const axiosInstance = axios.create();
-axiosInstance.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (config.headers) {
-    config.headers["Authorization"] = `Bearer ${token}`;
+axiosInstance.interceptors.request.use((request: AxiosRequestConfig) => {
+  const token = localStorage.getItem('token');
+  if (request.headers) {
+    request.headers.Authorization = `Bearer ${token}`;
+  } else {
+    request.headers = {
+      Authorization: `Bearer ${token}`,
+    };
   }
 
-  return config;
+  return request;
 });
 
-function App() {
-  const authProvider: AuthBindings = {
+const App = () => {
+  const authProvider: AuthProvider = {
     login: async ({ credential }: CredentialResponse) => {
       const profileObj = credential ? parseJwt(credential) : null;
 
+      // Save user to MongoDB
       if (profileObj) {
-        localStorage.setItem(
-          "user",
-          JSON.stringify({
-            ...profileObj,
+        const response = await fetch('https://yariga.up.railway.app/api/v1/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: profileObj.name,
+            email: profileObj.email,
             avatar: profileObj.picture,
-          })
-        );
-
-        localStorage.setItem("token", `${credential}`);
-
-        return {
-          success: true,
-          redirectTo: "/",
-        };
-      }
-
-      return {
-        success: false,
-      };
-    },
-    logout: async () => {
-      const token = localStorage.getItem("token");
-
-      if (token && typeof window !== "undefined") {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        axios.defaults.headers.common = {};
-        window.google?.accounts.id.revoke(token, () => {
-          return {};
+          }),
         });
+
+        const data = await response.json();
+        if (response.status === 200) {
+          localStorage.setItem(
+            'user',
+            JSON.stringify({
+              ...profileObj,
+              avatar: profileObj.picture,
+              userid: data._id,
+            }),
+          );
+        } else {
+          return Promise.reject();
+        }
       }
 
-      return {
-        success: true,
-        redirectTo: "/login",
-      };
+      localStorage.setItem('token', `${credential}`);
+
+      return Promise.resolve();
     },
-    onError: async (error) => {
-      console.error(error);
-      return { error };
+    logout: () => {
+      const token = localStorage.getItem('token');
+
+      if (token && typeof window !== 'undefined') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        axios.defaults.headers.common = {};
+        window.google?.accounts.id.revoke(token, () => Promise.resolve());
+      }
+
+      return Promise.resolve();
     },
-    check: async () => {
-      const token = localStorage.getItem("token");
+    checkError: () => Promise.resolve(),
+    checkAuth: async () => {
+      const token = localStorage.getItem('token');
 
       if (token) {
-        return {
-          authenticated: true,
-        };
+        return Promise.resolve();
       }
-
-      return {
-        authenticated: false,
-        error: {
-          message: "Check failed",
-          name: "Token not found",
-        },
-        logout: true,
-        redirectTo: "/login",
-      };
+      return Promise.reject();
     },
-    getPermissions: async () => null,
-    getIdentity: async () => {
-      const user = localStorage.getItem("user");
-      if (user) {
-        return JSON.parse(user);
-      }
 
-      return null;
+    getPermissions: () => Promise.resolve(),
+    getUserIdentity: async () => {
+      const user = localStorage.getItem('user');
+      if (user) {
+        return Promise.resolve(JSON.parse(user));
+      }
     },
   };
 
   return (
-    <BrowserRouter>
-      <GitHubBanner />
-      <RefineKbarProvider>
-        <ColorModeContextProvider>
-          <CssBaseline />
-          <GlobalStyles styles={{ html: { WebkitFontSmoothing: "auto" } }} />
-          <RefineSnackbarProvider>
-            <DevtoolsProvider>
-              <Refine
-                dataProvider={dataProvider("https://api.fake-rest.refine.dev")}
-                notificationProvider={notificationProvider}
-                routerProvider={routerBindings}
-                authProvider={authProvider}
-                resources={[
-                  {
-                    name: "blog_posts",
-                    list: "/blog-posts",
-                    create: "/blog-posts/create",
-                    edit: "/blog-posts/edit/:id",
-                    show: "/blog-posts/show/:id",
-                    meta: {
-                      canDelete: true,
-                    },
-                  },
-                  {
-                    name: "categories",
-                    list: "/categories",
-                    create: "/categories/create",
-                    edit: "/categories/edit/:id",
-                    show: "/categories/show/:id",
-                    meta: {
-                      canDelete: true,
-                    },
-                  },
-                ]}
-                options={{
-                  syncWithLocation: true,
-                  warnWhenUnsavedChanges: true,
-                  useNewQueryKeys: true,
-                  projectId: "DqKdfa-h5kyI7-tXb67J",
-                }}
-              >
-                <Routes>
-                  <Route
-                    element={
-                      <Authenticated
-                        key="authenticated-inner"
-                        fallback={<CatchAllNavigate to="/login" />}
-                      >
-                        <ThemedLayoutV2
-                          Header={() => <Header isSticky={true} />}
-                        >
-                          <Outlet />
-                        </ThemedLayoutV2>
-                      </Authenticated>
-                    }
-                  >
-                    <Route
-                      index
-                      element={<NavigateToResource resource="blog_posts" />}
-                    />
-                    <Route path="/blog-posts">
-                      <Route index element={<BlogPostList />} />
-                      <Route path="create" element={<BlogPostCreate />} />
-                      <Route path="edit/:id" element={<BlogPostEdit />} />
-                      <Route path="show/:id" element={<BlogPostShow />} />
-                    </Route>
-                    <Route path="/categories">
-                      <Route index element={<CategoryList />} />
-                      <Route path="create" element={<CategoryCreate />} />
-                      <Route path="edit/:id" element={<CategoryEdit />} />
-                      <Route path="show/:id" element={<CategoryShow />} />
-                    </Route>
-                    <Route path="*" element={<ErrorComponent />} />
-                  </Route>
-                  <Route
-                    element={
-                      <Authenticated
-                        key="authenticated-outer"
-                        fallback={<Outlet />}
-                      >
-                        <NavigateToResource />
-                      </Authenticated>
-                    }
-                  >
-                    <Route path="/login" element={<Login />} />
-                  </Route>
-                </Routes>
-
-                <RefineKbar />
-                <UnsavedChangesNotifier />
-                <DocumentTitleHandler />
-              </Refine>
-              <DevtoolsPanel />
-            </DevtoolsProvider>
-          </RefineSnackbarProvider>
-        </ColorModeContextProvider>
-      </RefineKbarProvider>
-    </BrowserRouter>
+    <ColorModeContextProvider>
+      <CssBaseline />
+      <GlobalStyles styles={{ html: { WebkitFontSmoothing: 'auto' } }} />
+      <RefineSnackbarProvider>
+        <Refine
+          dataProvider={dataProvider('https://yariga.up.railway.app/api/v1')}
+          notificationProvider={notificationProvider}
+          ReadyPage={ReadyPage}
+          catchAll={<ErrorComponent />}
+          resources={[
+            {
+              name: 'properties', // LINK
+              list: AllProperties,
+              show: PropertyDetails,
+              create: CreateProperty,
+              edit: EditProperty,
+              icon: <VillaOutlined />,
+            },
+            {
+              name: 'agents', // LINK
+              list: Agents,
+              show: AgentProfile,
+              icon: <PeopleAltOutlined />,
+            },
+            {
+              name: 'review', // LINK
+              list: Home,
+              icon: <StarOutlineRounded />,
+            },
+            {
+              name: 'message', // LINK
+              list: Home,
+              icon: <ChatBubbleOutline />,
+            },
+            {
+              name: 'my-profile', // LINK
+              options: { label: 'My Profile' },
+              list: MyProfile,
+              icon: <AccountCircleOutlined />,
+            },
+          ]}
+          Title={Title}
+          Sider={Sider}
+          Layout={Layout}
+          Header={Header}
+          routerProvider={routerProvider}
+          authProvider={authProvider}
+          LoginPage={Login}
+          DashboardPage={Home}
+        />
+      </RefineSnackbarProvider>
+    </ColorModeContextProvider>
   );
-}
+};
 
 export default App;
