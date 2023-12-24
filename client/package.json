@@ -9,6 +9,8 @@
     "@mui/lab": "^5.0.0-alpha.85",
     "@mui/material": "^5.8.6",
     "@mui/x-data-grid": "^6.6.0",
+    "@pankod/refine-core": "^3.103.0",
+    "@pankod/refine-mui": "^3.63.0",
     "@refinedev/cli": "^2.7.4",
     "@refinedev/core": "^4.28.2",
     "@refinedev/devtools": "^1.1.6",
