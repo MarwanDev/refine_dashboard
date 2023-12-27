@@ -11,7 +11,7 @@ import { CredentialResponse } from "../interfaces/google";
 
   export const Login: React.FC = () => {
     const { mutate: login } = useLogin<CredentialResponse>();
-    const { mutateAsync: create } = useCreate();
+    // const { mutateAsync: create } = useCreate();
   
     const GoogleButton = (): JSX.Element => {
       const divRef = useRef<HTMLDivElement>(null);
@@ -29,20 +29,20 @@ import { CredentialResponse } from "../interfaces/google";
               if (res.credential) {
                 login(res);
   
-                CHANGE: add user to MongoDB
-                const profileObj = res.credential ? parseJwt(res.credential) : null;
-                if (profileObj) {
-                  const { data } = await create({
-                    resource: 'api/v1/users',
-                    values: {
-                      name: profileObj.name,
-                      email: profileObj.email,
-                      avatar: profileObj.picture,
-                    },
-                  });
+                // CHANGE: add user to MongoDB
+                // const profileObj = res.credential ? parseJwt(res.credential) : null;
+                // if (profileObj) {
+                //   const { data } = await create({
+                //     resource: 'api/v1/users',
+                //     values: {
+                //       name: profileObj.name,
+                //       email: profileObj.email,
+                //       avatar: profileObj.picture,
+                //     },
+                //   });
   
-                  console.log('data', data);
-                }
+                //   console.log('data', data);
+                // }
               }
             },
           });
